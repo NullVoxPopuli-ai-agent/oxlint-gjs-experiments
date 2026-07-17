@@ -7,6 +7,8 @@ npm install
 node 1-static-schema-walker.mjs
 node 2-transform-contract.mjs
 node 3-glint-typed-transform.mjs
+node 4-rust-rules-on-virtual-source.mjs
+node 5-rule-consumption.mjs
 ```
 
 ## Experiment 1: RFC static visitorKeys schema + generated walkers
@@ -45,3 +47,18 @@ Results:
 This is the RFC's runtime flow, steps 4–6 (virtual source → typed diagnostics → report against the original file), executed end-to-end with already-published Ember tooling.
 
 Note: `typescript` is pinned to 6.x. Glint requires the TS compiler API (peer range `>=5.6.0`); TypeScript 7 (the native port) does not expose that API.
+
+## Experiment 4: real oxlint Rust rules on the virtual source
+
+Runs stock `oxlint` (1.74.0, `--format json`) on the Glint-generated virtual TS for a `.gts` where `SomeButton` is imported and used only inside `<template>`, `unusedThing` is imported and never used, and a `debugger` statement sits in a class method. This is the RFC's runtime-flow step 4 with the actual Rust linter.
+
+Results:
+
+- `no-unused-vars` flags `unusedThing` and does **not** flag `SomeButton` — the faithful transform makes template usage visible to Rust rules, which a masking or `eval()`-bag virtual source cannot provide.
+- `no-debugger` fires; its span maps back through the Volar mappings to `demo.gts:7:5`, the exact original offset.
+
+## Experiment 5: the RFC's Consumption model with a real rule
+
+A direct port of eslint-plugin-ember's `template-no-obsolete-elements` check, written exactly in the RFC's rule shape (`create(context)` returning a `GlimmerElementNode(node)` visitor — the RFC's `VElement` example), run by a minimal ESLint-style dispatcher over the native AST.
+
+Results: 2 reports, on `<marquee>` and `<blink>` (one nested inside `{{#if}}`), both carrying original-file spans with no mapping step; `<p>` and `<SomeButton>` untouched.

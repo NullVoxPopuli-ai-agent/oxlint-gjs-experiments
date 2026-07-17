@@ -20,6 +20,7 @@
     "@glimmer/component": "^2.1.1",
     "@glint/core": "^2.0.1-unstable.ca49b21",
     "@glint/template": "^1.6.1-unstable.ca49b21",
+    "oxlint": "^1.74.0",
     "typescript": "^6.0.3"
   }
 }
