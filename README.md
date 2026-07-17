@@ -6,6 +6,7 @@ Feasibility experiments for supporting Ember `.gjs`/`.gts` under the Oxlint lang
 npm install
 node 1-static-schema-walker.mjs
 node 2-transform-contract.mjs
+node 3-glint-typed-transform.mjs
 ```
 
 ## Experiment 1: RFC static visitorKeys schema + generated walkers
@@ -28,5 +29,19 @@ Results:
 - It emits valid virtual TS plus a source map, but it is build output, not a lint-faithful representation:
   1. the whole file is reprinted (swc), so nothing outside templates is byte-identical;
   2. template bodies become opaque strings whose scope access goes through an `eval()` bag, so template identifier references are invisible to the virtual source — unused/undef analysis over it is wrong.
-- The lint/type-faithful transform for gjs/gts is [Glint](https://github.com/typed-ember/glint) v2's Volar-based codegen (virtual TS where every template identifier is a real typed reference, plus Volar mappings) — the architecture the RFC already cites.
+- The lint/type-faithful transform for gjs/gts is [Glint](https://github.com/typed-ember/glint) v2's Volar-based codegen (virtual TS where every template identifier is a real typed reference, plus Volar mappings) — the architecture the RFC already cites. Experiment 3 verifies this.
 - `content-tag`'s `parse()` API yields exact template byte ranges (43% of this sample file), which is all a masking / "shadow source" fallback needs for the remaining 57% to be identity-mapped.
+
+## Experiment 3: type-aware linting via Glint v2 codegen
+
+Constructs `@glint/core` (v2, Volar-based) `VirtualGtsCode` for a `.gts` containing a type error inside a `<template>` (`{{this.cuont}}`, a typo for `this.count`).
+
+Results:
+
+- The embedded virtual TS contains `__glintRef__.this.cuont` — a real typed reference, no `eval()` (contrast Experiment 2).
+- `embeddedCodes[0].mappings` are Volar `CodeMapping`s (`sourceOffsets`/`generatedOffsets`/`lengths`) — the RFC's `Mappings` shape as-is.
+- Vanilla `ts.createProgram` over the virtual text reports `TS2551: Property 'cuont' does not exist on type 'Demo'. Did you mean 'count'?`, and the mappings alone relocate it to `demo.gts:7:15` — the exact offset of `cuont` in the original file.
+
+This is the RFC's runtime flow, steps 4–6 (virtual source → typed diagnostics → report against the original file), executed end-to-end with already-published Ember tooling.
+
+Note: `typescript` is pinned to 6.x. Glint requires the TS compiler API (peer range `>=5.6.0`); TypeScript 7 (the native port) does not expose that API.

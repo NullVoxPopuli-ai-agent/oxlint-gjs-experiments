@@ -15,5 +15,11 @@
     "@typescript-eslint/visitor-keys": "^8.64.0",
     "content-tag": "^4.2.0",
     "ember-estree": "^0.7.0"
+  },
+  "devDependencies": {
+    "@glimmer/component": "^2.1.1",
+    "@glint/core": "^2.0.1-unstable.ca49b21",
+    "@glint/template": "^1.6.1-unstable.ca49b21",
+    "typescript": "^6.0.3"
   }
 }
