@@ -9,6 +9,8 @@ node 2-transform-contract.mjs
 node 3-glint-typed-transform.mjs
 node 4-rust-rules-on-virtual-source.mjs
 node 5-rule-consumption.mjs
+node 6-unused-let-block-param.mjs
+node 7-rfc-mappings-shape.mjs
 ```
 
 ## Experiment 1: RFC static visitorKeys schema + generated walkers
@@ -62,3 +64,25 @@ Results:
 A direct port of eslint-plugin-ember's `template-no-obsolete-elements` check, written exactly in the RFC's rule shape (`create(context)` returning a `GlimmerElementNode(node)` visitor — the RFC's `VElement` example), run by a minimal ESLint-style dispatcher over the native AST.
 
 Results: 2 reports, on `<marquee>` and `<blink>` (one nested inside `{{#if}}`), both carrying original-file spans with no mapping step; `<p>` and `<SomeButton>` untouched.
+
+## Experiment 6: unused `{{#let}}` block param via the virtual source
+
+Glint codegen turns a template block param into a real destructured const (`const [unusedLocal] = __glintY__.blockParams["default"]`). This tests whether a scope-flavored template rule (eslint-plugin-ember's `template-no-unused-block-params`) is reachable with zero native scoping — purely transform + Rust rule + mappings.
+
+Results:
+
+- `unusedLocal` (bound, never referenced) is flagged by stock oxlint `no-unused-vars`, and the span maps back to `demo.gts:7:27` — the exact `|unusedLocal|` position in the template.
+- `usedLocal` (referenced by `{{usedLocal}}`) is not flagged.
+
+So part of the scope-dependent rule category is covered by the transform path alone; what remains blocked on native scoping is rules that resolve references on the native AST (`getScope`-style, e.g. `template-no-let-reference`).
+
+## Experiment 7: the RFC's Mappings shape, both directions
+
+Converts Glint's Volar `CodeMapping`s (`sourceOffsets`/`generatedOffsets`/`lengths`) into the RFC's exact `{ virtualStart, virtualEnd, originalStart, originalEnd }` entries, then exercises the interface:
+
+- original → virtual: a template identifier (`count` in `{{this.count}}`) lands on the same identifier in the virtual TS
+- virtual → original: an offset in the byte-identical JS prefix maps back unchanged
+- an unmapped virtual offset (generated Glint plumbing, `__glintDSL__.emitElement`) returns null — the RFC's suppression rule
+- round-trip original → virtual → original over every mapped offset: 126 offsets, 0 failures
+
+The conversion is mechanical, i.e. a Volar-based transform can hand Oxlint RFC-shaped mappings as-is.
